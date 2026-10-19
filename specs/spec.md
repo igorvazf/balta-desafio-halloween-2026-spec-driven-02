@@ -27,33 +27,43 @@ esse link e acompanhe quantos acessos ele recebeu.
 - RF-04: acessar um link curto existente redireciona para a URL de destino
 - RF-05: cada acesso a um link válido incrementa o contador daquele link,
   incluindo acessos repetidos e automatizados
-- RF-06: o criador pode definir uma data de expiração para o link; a data e o
-  limite de validade são interpretados em UTC, e o link permanece válido até o
-  fim da data informada
-- RF-07: o sistema devolve o total de acessos de um link a qualquer pessoa que
+- RF-06: o criador pode informar uma data de expiração (dia, sem horário), interpretada em UTC.
+  O link é válido até 23:59:59 UTC dessa data e passa a estar expirado a partir de 00:00 UTC do dia seguinte.
+  A data atual é aceita.
+- RF-07: o sistema devolve o total de acessos de um link, expirado ou não, a qualquer pessoa que
   conheça seu código
 - RF-08: os links e seus dados devem ser persistidos em banco de dados para que
   não se percam após reinício da aplicação
 
+## Requisitos não funcionais
+- RNF-01: o redirecionamento de um link acessado recentemente não consulta o banco para descobrir o destino.
+  Nenhum mecanismo usado para isso pode alterar o comportamento do RF-05, do RF-07 nem da RN-03: todo acesso válido é contado,
+  link expirado nunca redireciona e o total consultado é sempre o persistido.
+- RNF-02: a API expõe, em todos os ambientes, documentação interativa no padrão OpenAPI.
+  Ela descreve todos os endpoints, incluindo o redirecionamento, com exemplos de entrada e todas as respostas de erro.
+
 ## Regras de negócio
 - RN-01: o código do link é único em todo o sistema
-- RN-02: a URL de destino precisa usar http ou https e ser publicamente acessível
+- RN-02: a URL de destino precisa usar http ou https, e o host precisa resolver para um endereço IP público.
+  Endereços de loopback, de rede privada, link-local ou reservados são recusados.
+  O sistema não faz requisição ao destino para verificar se ele responde.
 - RN-03: link expirado não redireciona e não conta acesso
 - RN-04: o contador de acessos nunca diminui
 - RN-05: códigos automáticos e personalizados aceitam somente A-Z maiúsculo e
   os dígitos de 1 a 9; o dígito 0, minúsculas, espaços e caracteres especiais
   não são permitidos
-- RN-06: se um código gerado automaticamente já estiver em uso, o sistema tenta
-  gerar outro código
+- RN-06: se um código gerado automaticamente já estiver em uso, o sistema gera outro, até 5 tentativas.
+  Se todas colidirem, a criação falha com erro e nenhum link é criado.
 
 ## Casos de borda
-- Código já em uso: recusar a criação e explicar o motivo
-- Código gerado automaticamente já em uso: gerar outro código e tentar
+- CB-01: código já em uso: recusar a criação e explicar o motivo
+- CB-02: código gerado automaticamente já em uso: gerar outro código e tentar
   novamente
-- Código inexistente no acesso: responder que o link não existe
-- URL de destino com mais de 2048 caracteres: recusar
-- URL de destino não publicamente acessível: recusar
-- Data de expiração no passado: recusar na criação
+- CB-03: código inexistente no acesso: responder que o link não existe
+- CB-04: URL de destino com mais de 2048 caracteres: recusar
+- CB-05: URL de destino não publicamente acessível: recusar
+- CB-06: host da URL que não resolve no DNS: recusar
+- CB-07: data de expiração no passado: recusar na criação
 
 ## Fora de escopo
 - Cadastro e login de usuários
@@ -68,3 +78,6 @@ esse link e acompanhe quantos acessos ele recebeu.
 - Um link ainda válido funciona até o fim de sua data de expiração em UTC
 - Qualquer pessoa que conheça o código pode consultar o total de acessos
 - Após reiniciar a aplicação, os links persistidos no banco continuam funcionando
+- Acessar o mesmo link várias vezes seguidas conta todos os acessos, mesmo quando o destino vem do cache.
+- Um link que expira enquanto está em cache deixa de redirecionar a partir de 00:00 UTC do dia seguinte.
+- A documentação lista todos os endpoints com suas respostas de sucesso e de erro.
